@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>K-Means Lab: explained and simulated</title>
+<style>
+:root{--bg:#f3f5f7;--panel:#fff;--ink:#1c2430;--muted:#5d6b7c;--grid:#e2e7ec;--line:#cfd6de;
+--c0:#e0457b;--c1:#1f8a70;--c2:#e08a00;--c3:#3a6fd8;--c4:#8a4fd0;--c5:#00a3b8;--c6:#9a6b2f;--c7:#d33f2e;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10151b;--panel:#18202a;--ink:#e8edf3;--muted:#93a1b2;--grid:#243040;--line:#33415a;
+--c0:#ff7aa5;--c1:#4fd1ae;--c2:#ffb84d;--c3:#7ea6ff;--c4:#b794f6;--c5:#4fd8ec;--c6:#d9a45e;--c7:#ff8a7a}}
+:root[data-theme="dark"]{--bg:#10151b;--panel:#18202a;--ink:#e8edf3;--muted:#93a1b2;--grid:#243040;--line:#33415a;
+--c0:#ff7aa5;--c1:#4fd1ae;--c2:#ffb84d;--c3:#7ea6ff;--c4:#b794f6;--c5:#4fd8ec;--c6:#d9a45e;--c7:#ff8a7a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;line-height:1.5}
+.wrap{max-width:960px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.6rem;margin:0 0 4px;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0 0 14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.controls label{display:flex;flex-direction:column;gap:4px;font-size:.9rem;color:var(--muted)}
+.controls b{color:var(--ink)}
+select,input[type=range]{width:100%;font:inherit}
+select{padding:7px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+svg{display:block;width:100%;height:auto;max-height:68vh}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:inherit;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--c3);outline-offset:2px}
+button:disabled{opacity:.45;cursor:default}
+.stats{display:flex;flex-wrap:wrap;gap:6px 22px;margin:10px 2px 4px}
+.stats span{color:var(--muted)}.stats b{color:var(--ink)}
+.msg{margin:4px 2px 10px;color:var(--muted);min-height:1.5em}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.88rem;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px}
+.pt{transition:fill .45s}.cent{transition:transform .8s cubic-bezier(.5,0,.2,1)}
+@media (prefers-reduced-motion:reduce){.pt,.cent{transition:none}}
+h2{font-size:1.2rem;margin:26px 0 8px}
+.explain p,.explain li{max-width:72ch}
+code{background:var(--grid);padding:1px 6px;border-radius:4px}
+.formula{background:var(--grid);padding:10px 14px;border-radius:8px;overflow-x:auto;font-family:Consolas,monospace}
+.courses{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.course{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.course h3{margin:0;font-size:1rem}
+.course .meta{color:var(--muted);font-size:.85rem}
+.course a{color:var(--c3);font-weight:700;margin-top:auto}
+.foot{color:var(--muted);font-size:.85rem;margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>K-Means Lab</h1>
+<p class="sub">Choose the number of points and clusters, then watch K-Means assign and update one iteration at a time.</p>
+
+<div class="card controls">
+  <label>Points: <b id="nv">40</b><input type="range" id="n" min="10" max="300" value="40"></label>
+  <label>Clusters (k): <b id="kv">4</b><input type="range" id="k" min="2" max="8" value="4"></label>
+  <label>Data shape
+    <select id="shape"><option value="blobs">Groups (blobs)</option><option value="uniform">Uniform random</option><option value="rings">Two rings</option></select></label>
+  <label>Starting centroids
+    <select id="init"><option value="random">Random points</option><option value="pp">k-means++</option></select></label>
+</div>
+
+<div class="card">
+  <svg id="svg" viewBox="0 0 600 420" role="img" aria-label="K-Means clustering visualization"></svg>
+  <div class="legend" id="legend"></div>
+</div>
+
+<div class="stats">
+  <span>Iteration <b id="it">0</b></span>
+  <span>Inertia (WCSS) <b id="inr">-</b></span>
+  <span>State <b id="state">ready</b></span>
+</div>
+<div class="msg" id="msg"></div>
+<div class="row">
+  <button class="primary" id="play">Play</button>
+  <button id="next">Next step</button>
+  <button id="restart">Restart (same points)</button>
+  <button id="gen">New points</button>
+  <label class="row" style="color:var(--muted);font-size:.9rem">Speed <input type="range" id="speed" min="1" max="5" value="3" style="width:110px"></label>
+</div>
+<div class="card" style="margin-top:12px">
+  <div style="color:var(--muted);font-size:.9rem;margin-bottom:4px">Inertia after each assign step (it never goes up)</div>
+  <svg id="chart" viewBox="0 0 600 90" style="max-height:110px"></svg>
+</div>
+
+<section class="explain">
+<h2>What is K-Means?</h2>
+<p>K-Means is an unsupervised algorithm that splits unlabeled data into <b>k</b> clusters. Each cluster is summarized by a <b>centroid</b>, the mean position of its points.</p>
+<h2>The loop</h2>
+<ol>
+<li><b>Initialize:</b> pick k starting centroids.</li>
+<li><b>Assign:</b> each point joins its nearest centroid.</li>
+<li><b>Update:</b> each centroid moves to the mean of its points.</li>
+<li><b>Repeat</b> until no point changes cluster.</li>
+</ol>
+<h2>The math</h2>
+<div class="formula">J = sum over clusters j, sum over points x in cluster j of ||x - mu_j||^2</div>
+<p>Both steps can only lower J or keep it the same, so the algorithm always stops, at a <i>local</i> minimum.</p>
+<h2>Experiments to try</h2>
+<ul>
+<li>Set k to a different value than the real number of groups and see what happens to the inertia.</li>
+<li>Press <b>Restart</b> several times with random starts: results can differ. Then try <code>k-means++</code>.</li>
+<li>Choose <b>Two rings</b>. K-Means cannot separate them, because it assumes round clusters.</li>
+<li>Use 300 points and k = 8 to see how fast it converges on larger data.</li>
+</ul>
+
+<h2>Courses and resources</h2>
+<div class="courses">
+<div class="course"><h3>Machine Learning Specialization</h3><div class="meta">Andrew Ng · Coursera · Beginner</div><p style="margin:0">Includes a full unsupervised learning course with K-Means and anomaly detection.</p><a href="https://www.coursera.org/specializations/machine-learning-introduction" target="_blank" rel="noopener">Open course</a></div>
+<div class="course"><h3>Clustering (ML Crash Course)</h3><div class="meta">Google for Developers · Free · Beginner</div><p style="margin:0">Short, practical lessons on clustering, k-means and how to measure cluster quality.</p><a href="https://developers.google.com/machine-learning/clustering" target="_blank" rel="noopener">Open course</a></div>
+<div class="course"><h3>scikit-learn: KMeans guide</h3><div class="meta">Documentation · Free · Intermediate</div><p style="margin:0">How to use <code>KMeans</code> in Python, k-means++ initialization and the silhouette score.</p><a href="https://scikit-learn.org/stable/modules/clustering.html#k-means" target="_blank" rel="noopener">Open guide</a></div>
+<div class="course"><h3>StatQuest: K-means clustering</h3><div class="meta">Josh Starmer · YouTube · Beginner</div><p style="margin:0">A clear step-by-step video explanation. Search for "StatQuest K-means clustering".</p><a href="https://www.youtube.com/results?search_query=StatQuest+K-means+clustering" target="_blank" rel="noopener">Find the video</a></div>
+<div class="course"><h3>Stanford CS229: Machine Learning</h3><div class="meta">Stanford · Free notes · Advanced</div><p style="margin:0">Lecture notes with the math behind K-Means and the proof that it converges.</p><a href="https://cs229.stanford.edu/" target="_blank" rel="noopener">Open course</a></div>
+<div class="course"><h3>Python practice on Kaggle</h3><div class="meta">Kaggle Learn · Free · Beginner</div><p style="margin:0">Free hands-on notebooks and a clustering dataset you can try K-Means on.</p><a href="https://www.kaggle.com/learn" target="_blank" rel="noopener">Open Kaggle Learn</a></div>
+</div>
+<p class="foot">Course pages change over time, so check that each link is still current. Open source, MIT license.</p>
+</section>
+</div>
+
+<script>
+(function(){
+var NS="http://www.w3.org/2000/svg",W=600,H=420,P=24,MAXIT=100;
+var $=function(i){return document.getElementById(i)};
+var svg=$("svg"),chart=$("chart");
+var pts,cents,assign,phase,iter,done,timer=null,trails,hist,N,K;
+function col(k){return "var(--c"+k+")"}
+function el(n,a){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);return e}
+function gauss(){return Math.sqrt(-2*Math.log(Math.random()+1e-9))*Math.cos(2*Math.PI*Math.random())}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function d2(a,b){var x=a.x-b.x,y=a.y-b.y;return x*x+y*y}
+
+function makePoints(){
+  N=+$("n").value;K=+$("k").value;pts=[];
+  var shape=$("shape").value,i;
+  if(shape==="uniform"){
+    for(i=0;i<N;i++)pts.push({x:P+Math.random()*(W-2*P),y:P+Math.random()*(H-2*P)});
+  }else if(shape==="rings"){
+    for(i=0;i<N;i++){
+      var inner=i%2===0,r=(inner?60:150)+gauss()*8,a=Math.random()*6.283;
+      pts.push({x:clamp(W/2+r*Math.cos(a),P,W-P),y:clamp(H/2+r*Math.sin(a),P,H-P)});
+    }
+  }else{
+    var g=Math.max(2,Math.min(K,8)),cs=[];
+    for(i=0;i<g;i++)cs.push({x:90+Math.random()*(W-180),y:80+Math.random()*(H-160)});
+    for(i=0;i<N;i++){var c=cs[i%g];pts.push({x:clamp(c.x+gauss()*38,P,W-P),y:clamp(c.y+gauss()*34,P,H-P)})}
+  }
+}
+function pickCentroids(){
+  var m=$("init").value,c=[],i,k;
+  c.push(copy(pts[Math.floor(Math.random()*N)]));
+  while(c.length<K){
+    if(m==="random"){var p=pts[Math.floor(Math.random()*N)];if(c.every(function(q){return q.x!==p.x||q.y!==p.y}))c.push(copy(p));continue}
+    var w=pts.map(function(p){return Math.min.apply(null,c.map(function(q){return d2(p,q)}))});
+    var tot=w.reduce(function(a,b){return a+b},0),r=Math.random()*tot,s=0;
+    for(i=0;i<N;i++){s+=w[i];if(s>=r)break}
+    c.push(copy(pts[Math.min(i,N-1)]));
+  }
+  return c;
+}
+function copy(p){return {x:p.x,y:p.y}}
+
+function reset(){
+  stop();K=+$("k").value;
+  cents=pickCentroids();assign=pts.map(function(){return -1});
+  trails=cents.map(function(c){return [copy(c)]});hist=[];
+  phase="assign";iter=0;done=false;
+  build();stats(null);
+  $("msg").textContent="Centroids (stars) placed. Press Next step or Play.";
+  $("state").textContent="ready";$("next").disabled=false;$("play").disabled=false;drawChart();
+}
+function build(){
+  svg.innerHTML="";var i,k;
+  for(i=0;i<=W;i+=50)svg.appendChild(el("line",{x1:i,y1:0,x2:i,y2:H,stroke:"var(--grid)"}));
+  for(i=0;i<=H;i+=50)svg.appendChild(el("line",{x1:0,y1:i,x2:W,y2:i,stroke:"var(--grid)"}));
+  svg.appendChild(el("g",{id:"links"}));svg.appendChild(el("g",{id:"trails"}));
+  var r=N>150?4:N>70?5.5:7,gp=el("g",{});
+  pts.forEach(function(p,i){var c=el("circle",{cx:p.x,cy:p.y,r:r,"class":"pt",stroke:"var(--panel)","stroke-width":1.5});c.style.fill="var(--muted)";c.id="p"+i;gp.appendChild(c)});
+  svg.appendChild(gp);
+  cents.forEach(function(c,k){
+    var g=el("g",{"class":"cent",id:"c"+k});g.style.transform="translate("+c.x+"px,"+c.y+"px)";
+    var s=el("path",{d:"M0,-13 L4,-4 13,0 4,4 0,13 -4,4 -13,0 -4,-4Z",stroke:"var(--ink)","stroke-width":2,"stroke-linejoin":"round"});
+    s.style.fill=col(k);g.appendChild(s);svg.appendChild(g);
+  });
+  var lg=$("legend");lg.innerHTML="";
+  for(k=0;k<K;k++){var s=document.createElement("span");s.innerHTML='<i style="background:'+col(k)+'"></i>Cluster '+(k+1)+': <b id="n'+k+'">0</b>';lg.appendChild(s)}
+}
+function inertia(){var s=0;pts.forEach(function(p,i){if(assign[i]>=0)s+=d2(p,cents[assign[i]])});return s}
+function stats(v){$("it").textContent=iter;$("inr").textContent=v===null?"-":Math.round(v).toLocaleString()}
+function links(){
+  var g=$("links");g.innerHTML="";
+  pts.forEach(function(p,i){if(assign[i]<0)return;var c=cents[assign[i]];
+    var l=el("line",{x1:p.x,y1:p.y,x2:c.x,y2:c.y,opacity:.3});l.style.stroke=col(assign[i]);g.appendChild(l)});
+}
+function drawTrails(){
+  var g=$("trails");g.innerHTML="";
+  trails.forEach(function(t,k){if(t.length<2)return;
+    var p=el("path",{d:t.map(function(q,i){return (i?"L":"M")+q.x+","+q.y}).join(" "),fill:"none","stroke-width":2,"stroke-dasharray":"5 4",opacity:.4});
+    p.style.stroke=col(k);g.appendChild(p)});
+}
+function drawChart(){
+  chart.innerHTML="";
+  chart.appendChild(el("line",{x1:30,y1:75,x2:590,y2:75,stroke:"var(--line)"}));
+  if(!hist.length)return;
+  var mx=Math.max.apply(null,hist),mn=Math.min.apply(null,hist),rng=(mx-mn)||1,n=hist.length;
+  var xs=function(i){return n===1?310:30+i*(560/(n-1))},ys=function(v){return 70-((v-mn)/rng)*55};
+  chart.appendChild(el("path",{d:hist.map(function(v,i){return (i?"L":"M")+xs(i)+","+ys(v)}).join(" "),fill:"none",stroke:"var(--c3)","stroke-width":2}));
+  hist.forEach(function(v,i){chart.appendChild(el("circle",{cx:xs(i),cy:ys(v),r:3.5,fill:"var(--c3)"}))});
+}
+function doAssign(){
+  var changed=0;
+  pts.forEach(function(p,i){
+    var b=0,bd=Infinity;
+    for(var k=0;k<K;k++){var d=d2(p,cents[k]);if(d<bd){bd=d;b=k}}
+    if(assign[i]!==b){changed++;assign[i]=b}
+    $("p"+i).style.fill=col(b);
+  });
+  for(var k=0;k<K;k++){var n=0;assign.forEach(function(a){if(a===k)n++});$("n"+k).textContent=n}
+  iter++;var J=inertia();hist.push(J);stats(J);links();drawChart();
+  if((changed===0&&iter>1)||iter>=MAXIT){
+    done=true;$("state").textContent="converged";
+    $("msg").textContent="Iteration "+iter+": no point changed cluster. The centroids will not move again, so this is the final result.";
+    finish();
+  }else{
+    $("state").textContent="assign";
+    $("msg").textContent="Iteration "+iter+" (assign): every point took its nearest centroid's color. "+changed+" point"+(changed===1?"":"s")+" changed cluster.";
+    phase="update";
+  }
+}
+function doUpdate(){
+  var moved=0;
+  for(var k=0;k<K;k++){
+    var sx=0,sy=0,n=0;
+    pts.forEach(function(p,i){if(assign[i]===k){sx+=p.x;sy+=p.y;n++}});
+    if(!n)continue;
+    var nx=sx/n,ny=sy/n;
+    if(Math.abs(nx-cents[k].x)>.01||Math.abs(ny-cents[k].y)>.01)moved++;
+    cents[k].x=nx;cents[k].y=ny;trails[k].push({x:nx,y:ny});
+    $("c"+k).style.transform="translate("+nx+"px,"+ny+"px)";
+  }
+  links();setTimeout(function(){links();drawTrails()},820);
+  $("state").textContent="update";
+  $("msg").textContent="Iteration "+iter+" (update): each centroid moved to the mean of its cluster. "+moved+" moved.";
+  phase="assign";
+}
+function step(){if(done)return;phase==="assign"?doAssign():doUpdate()}
+function finish(){stop();drawTrails();$("next").disabled=true;$("play").disabled=true}
+function delay(){return [1800,1300,900,550,250][$("speed").value-1]}
+function loop(){step();if(!done&&timer!==null)timer=setTimeout(loop,delay())}
+function stop(){if(timer!==null){clearTimeout(timer);timer=null}$("play").textContent="Play"}
+$("play").onclick=function(){
+  if(timer!==null){stop();return}
+  $("play").textContent="Pause";timer=setTimeout(loop,150);
+};
+$("next").onclick=function(){stop();step()};
+$("restart").onclick=reset;
+$("gen").onclick=function(){makePoints();reset()};
+$("n").oninput=function(){$("nv").textContent=this.value;makePoints();reset()};
+$("k").oninput=function(){$("kv").textContent=this.value;makePoints();reset()};
+$("shape").onchange=function(){makePoints();reset()};
+$("init").onchange=reset;
+makePoints();reset();
+})();
+</script>
+</body>
+</html>
