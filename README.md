@@ -102,20 +102,9 @@ Open `index.html` in any browser. No install or build step is needed.
 
 What you see: colored points are assigned clusters, stars are centroids, thin lines link points to their centroid, and dashed lines trace each centroid's path. The panel under the animation shows the iteration number, the inertia (WCSS), and a small chart of the inertia after each assign step.
 
-## 8. Publish on GitHub
 
-```bash
-git init
-git add .
-git commit -m "K-Means explanation and simulation"
-git branch -M main
-git remote add origin https://github.com/<your-username>/<repo-name>.git
-git push -u origin main
-```
 
-Then on GitHub: **Settings → Pages → Build and deployment → Deploy from a branch → `main` / `(root)`**. After a minute your simulation is live.
-
-## 9. Courses and resources
+## 8. Courses and resources
 
 | Resource | Provider | Level |
 |----------|----------|-------|
